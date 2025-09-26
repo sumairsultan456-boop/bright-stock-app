@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react';
-import { Medicine } from '@/types/medicine';
+import { useState, useEffect, useRef } from 'react';
+import { Medicine, UnitType } from '@/types/medicine';
 import { useMedicineStore } from '@/hooks/useMedicineStore';
 import { MedicineCard } from '@/components/MedicineCard';
 import { MedicineForm } from '@/components/MedicineForm';
 import { SalesForm } from '@/components/SalesForm';
 import { Dashboard } from '@/components/Dashboard';
 import { Navigation, TabType } from '@/components/Navigation';
+import { AlphabetNavigator } from '@/components/AlphabetNavigator';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -19,7 +20,10 @@ const Index = () => {
   const [showSalesForm, setShowSalesForm] = useState(false);
   const [editingMedicine, setEditingMedicine] = useState<Medicine | null>(null);
   const [sellingMedicine, setSellingMedicine] = useState<Medicine | null>(null);
+  const [sellingUnitType, setSellingUnitType] = useState<UnitType>('tablet');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedUnitTypes, setSelectedUnitTypes] = useState<Record<string, UnitType>>({});
+  const medicineListRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
   const {
@@ -35,10 +39,50 @@ const Index = () => {
     updateSettings
   } = useMedicineStore();
 
-  // Filter medicines based on search
-  const filteredMedicines = medicines.filter(medicine =>
-    medicine.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Filter and sort medicines alphabetically
+  const filteredMedicines = medicines
+    .filter(medicine =>
+      medicine.name.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  // Initialize unit types for new medicines
+  useEffect(() => {
+    medicines.forEach(medicine => {
+      if (!selectedUnitTypes[medicine.id]) {
+        setSelectedUnitTypes(prev => ({
+          ...prev,
+          [medicine.id]: medicine.unitType || (medicine.category === 'medicine' ? 'strip' : 'pack')
+        }));
+      }
+    });
+  }, [medicines, selectedUnitTypes]);
+
+  // Handle unit type changes
+  const handleUnitTypeChange = (medicineId: string, unitType: UnitType) => {
+    setSelectedUnitTypes(prev => ({
+      ...prev,
+      [medicineId]: unitType
+    }));
+  };
+
+  // Handle letter navigation
+  const handleLetterSelect = (letter: string) => {
+    const firstMedicineWithLetter = filteredMedicines.find(
+      medicine => medicine.name.charAt(0).toUpperCase() === letter
+    );
+    
+    if (firstMedicineWithLetter && medicineListRef.current) {
+      const medicineElement = document.getElementById(`medicine-${firstMedicineWithLetter.id}`);
+      if (medicineElement) {
+        medicineElement.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'start',
+          inline: 'nearest'
+        });
+      }
+    }
+  };
 
   // Calculate today's sales
   const today = new Date().toISOString().split('T')[0];
@@ -84,10 +128,19 @@ const Index = () => {
     if (sellingMedicine) {
       const success = addSale(sellingMedicine.id, tabletsCount);
       if (success) {
+        const unitType = sellingUnitType;
+        let displayCount = tabletsCount;
+        let unitName = 'tablets';
+        
+        if (unitType === 'strip') {
+          displayCount = Math.ceil(tabletsCount / sellingMedicine.tabletsPerStrip);
+          unitName = 'strips';
+        }
+        
         const totalValue = (tabletsCount * sellingMedicine.mrp) / sellingMedicine.tabletsPerStrip;
         toast({
           title: "Sale recorded",
-          description: `Sold ${tabletsCount} tablets for ₹${totalValue.toFixed(2)}`,
+          description: `Sold ${displayCount} ${unitName} for ₹${totalValue.toFixed(2)}`,
         });
       } else {
         toast({
@@ -99,6 +152,7 @@ const Index = () => {
     }
     setShowSalesForm(false);
     setSellingMedicine(null);
+    setSellingUnitType('tablet');
   };
 
   const dailySalesData = getDailySales();
@@ -156,22 +210,26 @@ const Index = () => {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-4" ref={medicineListRef}>
           {filteredMedicines.map(medicine => (
-            <MedicineCard
-              key={medicine.id}
-              medicine={medicine}
-              stockInfo={getStockInfo(medicine)}
-              onEdit={(med) => {
-                setEditingMedicine(med);
-                setShowMedicineForm(true);
-              }}
-              onDelete={handleDeleteMedicine}
-              onSell={(med) => {
-                setSellingMedicine(med);
-                setShowSalesForm(true);
-              }}
-            />
+            <div key={medicine.id} id={`medicine-${medicine.id}`}>
+              <MedicineCard
+                medicine={medicine}
+                stockInfo={getStockInfo(medicine)}
+                selectedUnitType={selectedUnitTypes[medicine.id] || medicine.unitType || 'strip'}
+                onEdit={(med) => {
+                  setEditingMedicine(med);
+                  setShowMedicineForm(true);
+                }}
+                onDelete={handleDeleteMedicine}
+                onSell={(med, unitType) => {
+                  setSellingMedicine(med);
+                  setSellingUnitType(unitType);
+                  setShowSalesForm(true);
+                }}
+                onUnitTypeChange={handleUnitTypeChange}
+              />
+            </div>
           ))}
         </div>
       )}
@@ -286,6 +344,14 @@ const Index = () => {
 
       {/* Navigation */}
       <Navigation activeTab={activeTab} onTabChange={setActiveTab} />
+
+      {/* Alphabet Navigator - only show on inventory tab */}
+      {activeTab === 'inventory' && filteredMedicines.length > 10 && (
+        <AlphabetNavigator
+          medicines={filteredMedicines}
+          onLetterSelect={handleLetterSelect}
+        />
+      )}
 
       {/* Modals */}
       {showMedicineForm && (

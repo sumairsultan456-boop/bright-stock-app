@@ -30,10 +30,13 @@ export function useMedicineStore() {
 
     if (savedMedicines) {
       const parsedMedicines = JSON.parse(savedMedicines);
-      // Migrate existing medicines to include remainingTabletsInCurrentStrip field
+      // Migrate existing medicines to include new fields
       const migratedMedicines = parsedMedicines.map((med: any) => ({
         ...med,
-        remainingTabletsInCurrentStrip: med.remainingTabletsInCurrentStrip ?? 0
+        remainingTabletsInCurrentStrip: med.remainingTabletsInCurrentStrip ?? 0,
+        unitType: med.unitType ?? (med.category === 'medicine' ? 'strip' : 'pack'),
+        category: med.category ?? 'medicine',
+        customUnitName: med.customUnitName
       }));
       setMedicines(migratedMedicines);
     }
@@ -69,6 +72,9 @@ export function useMedicineStore() {
     const newMedicine: Medicine = {
       ...medicineData,
       id: Date.now().toString(),
+      // Set defaults for new fields if not provided
+      unitType: medicineData.unitType || (medicineData.category === 'medicine' ? 'strip' : 'pack'),
+      category: medicineData.category || 'medicine',
       createdAt: new Date(),
       updatedAt: new Date()
     };

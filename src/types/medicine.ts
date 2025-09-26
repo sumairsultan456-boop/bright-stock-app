@@ -1,3 +1,5 @@
+export type UnitType = 'tablet' | 'strip' | 'pack' | 'box' | 'bottle' | 'piece';
+
 export interface Medicine {
   id: string;
   name: string;
@@ -5,6 +7,9 @@ export interface Medicine {
   strips: number;
   tabletsPerStrip: number;
   remainingTabletsInCurrentStrip: number; // 0 = current strip is full, >0 = partial strip
+  unitType: UnitType;
+  customUnitName?: string; // For custom units like "chocolate bar", "bottle", etc.
+  category: 'medicine' | 'other';
   createdAt: Date;
   updatedAt: Date;
 }

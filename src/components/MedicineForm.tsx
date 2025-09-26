@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Medicine } from '@/types/medicine';
+import { Medicine, UnitType } from '@/types/medicine';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { X } from 'lucide-react';
+import { X, Package, Pill, Box } from 'lucide-react';
 
 interface MedicineFormProps {
   medicine?: Medicine;
@@ -17,7 +18,11 @@ export function MedicineForm({ medicine, onSave, onCancel }: MedicineFormProps) 
     name: medicine?.name || '',
     mrp: medicine?.mrp || '',
     strips: medicine?.strips || '',
-    tabletsPerStrip: medicine?.tabletsPerStrip || ''
+    tabletsPerStrip: medicine?.tabletsPerStrip || '',
+    remainingTabletsInCurrentStrip: medicine?.remainingTabletsInCurrentStrip || 0,
+    unitType: medicine?.unitType || 'strip',
+    category: medicine?.category || 'medicine',
+    customUnitName: medicine?.customUnitName || ''
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -55,7 +60,10 @@ export function MedicineForm({ medicine, onSave, onCancel }: MedicineFormProps) 
       mrp: Number(formData.mrp),
       strips: Number(formData.strips),
       tabletsPerStrip: Number(formData.tabletsPerStrip),
-      remainingTabletsInCurrentStrip: medicine?.remainingTabletsInCurrentStrip || 0
+      remainingTabletsInCurrentStrip: medicine?.remainingTabletsInCurrentStrip || 0,
+      unitType: formData.unitType as UnitType,
+      category: formData.category as 'medicine' | 'other',
+      customUnitName: formData.customUnitName || undefined
     });
   };
 
@@ -144,6 +152,104 @@ export function MedicineForm({ medicine, onSave, onCancel }: MedicineFormProps) 
                 <p className="text-sm text-destructive">{errors.tabletsPerStrip}</p>
               )}
             </div>
+
+            {/* Category Selection */}
+            <div className="space-y-2">
+              <Label>Item Category</Label>
+              <Select 
+                value={formData.category} 
+                onValueChange={(value) => handleInputChange('category', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="medicine">
+                    <div className="flex items-center gap-2">
+                      <Pill className="h-4 w-4" />
+                      <span>Medicine</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="other">
+                    <div className="flex items-center gap-2">
+                      <Package className="h-4 w-4" />
+                      <span>Other Item</span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Unit Type Selection */}
+            <div className="space-y-2">
+              <Label>Default Unit Type</Label>
+              <Select 
+                value={formData.unitType} 
+                onValueChange={(value) => handleInputChange('unitType', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {formData.category === 'medicine' ? (
+                    <>
+                      <SelectItem value="tablet">
+                        <div className="flex items-center gap-2">
+                          <Pill className="h-4 w-4" />
+                          <span>Tablet</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="strip">
+                        <div className="flex items-center gap-2">
+                          <Package className="h-4 w-4" />
+                          <span>Strip</span>
+                        </div>
+                      </SelectItem>
+                    </>
+                  ) : (
+                    <>
+                      <SelectItem value="pack">
+                        <div className="flex items-center gap-2">
+                          <Package className="h-4 w-4" />
+                          <span>Pack</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="box">
+                        <div className="flex items-center gap-2">
+                          <Box className="h-4 w-4" />
+                          <span>Box</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="bottle">
+                        <div className="flex items-center gap-2">
+                          <Package className="h-4 w-4" />
+                          <span>Bottle</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="piece">
+                        <div className="flex items-center gap-2">
+                          <Package className="h-4 w-4" />
+                          <span>Piece</span>
+                        </div>
+                      </SelectItem>
+                    </>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Custom Unit Name for Non-Medicine Items */}
+            {formData.category === 'other' && (
+              <div className="space-y-2">
+                <Label htmlFor="customUnitName">Custom Unit Name (Optional)</Label>
+                <Input
+                  id="customUnitName"
+                  value={formData.customUnitName}
+                  onChange={(e) => handleInputChange('customUnitName', e.target.value)}
+                  placeholder="e.g., chocolate bar, bottle"
+                />
+              </div>
+            )}
 
             <div className="flex gap-3 pt-4">
               <Button

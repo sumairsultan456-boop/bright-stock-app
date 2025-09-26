@@ -1,25 +1,76 @@
-import { Medicine, StockInfo } from '@/types/medicine';
+import { Medicine, StockInfo, UnitType } from '@/types/medicine';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Edit, Trash2, ShoppingCart } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Edit, Trash2, ShoppingCart, Package, Pill, Box } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface MedicineCardProps {
   medicine: Medicine;
   stockInfo: StockInfo;
+  selectedUnitType: UnitType;
   onEdit: (medicine: Medicine) => void;
   onDelete: (id: string) => void;
-  onSell: (medicine: Medicine) => void;
+  onSell: (medicine: Medicine, unitType: UnitType) => void;
+  onUnitTypeChange: (medicineId: string, unitType: UnitType) => void;
 }
 
 export function MedicineCard({ 
   medicine, 
   stockInfo, 
+  selectedUnitType,
   onEdit, 
   onDelete, 
-  onSell 
+  onSell,
+  onUnitTypeChange
 }: MedicineCardProps) {
+  const getUnitIcon = (unit: UnitType) => {
+    switch (unit) {
+      case 'tablet': return <Pill className="h-3 w-3" />;
+      case 'strip': return <Package className="h-3 w-3" />;
+      case 'pack': case 'box': return <Box className="h-3 w-3" />;
+      default: return <Package className="h-3 w-3" />;
+    }
+  };
+
+  const getUnitDisplay = (unit: UnitType) => {
+    if (medicine.customUnitName && unit !== 'tablet' && unit !== 'strip') {
+      return medicine.customUnitName;
+    }
+    return unit;
+  };
+
+  const getAvailableUnits = (): UnitType[] => {
+    if (medicine.category === 'medicine') {
+      return ['tablet', 'strip'];
+    }
+    const baseUnits: UnitType[] = ['pack', 'box', 'bottle', 'piece'];
+    return baseUnits;
+  };
+
+  const getCurrentStock = () => {
+    switch (selectedUnitType) {
+      case 'tablet':
+        return stockInfo.totalTablets;
+      case 'strip':
+        return medicine.strips;
+      default:
+        return medicine.strips; // For other units, use strips as base
+    }
+  };
+
+  const getCurrentMRP = () => {
+    switch (selectedUnitType) {
+      case 'tablet':
+        return (medicine.mrp / medicine.tabletsPerStrip).toFixed(2);
+      case 'strip':
+        return medicine.mrp.toFixed(2);
+      default:
+        return medicine.mrp.toFixed(2);
+    }
+  };
+
   const getStockBadge = () => {
     const baseClasses = "stock-indicator";
     
@@ -39,15 +90,47 @@ export function MedicineCard({
     <Card className="medicine-card">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
-          <div className="space-y-1">
+          <div className="space-y-1 flex-1">
             <CardTitle className="text-lg font-semibold text-card-foreground">
               {medicine.name}
             </CardTitle>
-            <p className="text-sm text-muted-foreground">
-              ₹{medicine.mrp} per strip
-            </p>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span>₹{getCurrentMRP()}</span>
+              <span>per {getUnitDisplay(selectedUnitType)}</span>
+              {medicine.category === 'other' && (
+                <Badge variant="outline" className="text-xs">
+                  {medicine.customUnitName || selectedUnitType}
+                </Badge>
+              )}
+            </div>
           </div>
           {getStockBadge()}
+        </div>
+        
+        {/* Unit Type Selector */}
+        <div className="flex items-center gap-2 pt-2">
+          <span className="text-xs font-medium text-muted-foreground">Unit:</span>
+          <Select
+            value={selectedUnitType}
+            onValueChange={(value: UnitType) => onUnitTypeChange(medicine.id, value)}
+          >
+            <SelectTrigger className="h-8 w-auto min-w-[80px] text-xs">
+              <div className="flex items-center gap-1">
+                {getUnitIcon(selectedUnitType)}
+                <SelectValue />
+              </div>
+            </SelectTrigger>
+            <SelectContent>
+              {getAvailableUnits().map((unit) => (
+                <SelectItem key={unit} value={unit}>
+                  <div className="flex items-center gap-2">
+                    {getUnitIcon(unit)}
+                    <span className="capitalize">{getUnitDisplay(unit)}</span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </CardHeader>
       
@@ -56,30 +139,44 @@ export function MedicineCard({
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              Strips Available
+              {selectedUnitType === 'tablet' ? 'Total Tablets' : selectedUnitType === 'strip' ? 'Strips Available' : 'Units Available'}
             </p>
             <p className="text-2xl font-bold text-card-foreground">
-              {medicine.strips}
+              {getCurrentStock()}
             </p>
           </div>
-          <div className="space-y-1">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              Total Tablets
-            </p>
-            <p className="text-2xl font-bold text-card-foreground">
-              {stockInfo.totalTablets}
-            </p>
-          </div>
+          {medicine.category === 'medicine' && selectedUnitType === 'tablet' && (
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Full Strips
+              </p>
+              <p className="text-2xl font-bold text-card-foreground">
+                {medicine.strips}
+              </p>
+            </div>
+          )}
+          {medicine.category === 'medicine' && selectedUnitType === 'strip' && (
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Total Tablets
+              </p>
+              <p className="text-2xl font-bold text-card-foreground">
+                {stockInfo.totalTablets}
+              </p>
+            </div>
+          )}
         </div>
 
-        <div className="space-y-1">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-            Tablets per Strip
-          </p>
-          <p className="text-lg font-semibold text-card-foreground">
-            {medicine.tabletsPerStrip}
-          </p>
-        </div>
+        {medicine.category === 'medicine' && (
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Tablets per Strip
+            </p>
+            <p className="text-lg font-semibold text-card-foreground">
+              {medicine.tabletsPerStrip}
+            </p>
+          </div>
+        )}
 
         {/* Stock Status Message */}
         <div className={cn(
@@ -96,12 +193,12 @@ export function MedicineCard({
           <Button
             variant="mobile"
             size="sm"
-            onClick={() => onSell(medicine)}
-            disabled={stockInfo.totalTablets === 0}
+            onClick={() => onSell(medicine, selectedUnitType)}
+            disabled={getCurrentStock() === 0}
             className="flex-1"
           >
             <ShoppingCart className="h-4 w-4 mr-2" />
-            Sell
+            Sell {getUnitDisplay(selectedUnitType)}
           </Button>
           
           <Button
