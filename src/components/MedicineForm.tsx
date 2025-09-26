@@ -54,7 +54,8 @@ export function MedicineForm({ medicine, onSave, onCancel }: MedicineFormProps) 
       name: formData.name.trim(),
       mrp: Number(formData.mrp),
       strips: Number(formData.strips),
-      tabletsPerStrip: Number(formData.tabletsPerStrip)
+      tabletsPerStrip: Number(formData.tabletsPerStrip),
+      remainingTabletsInCurrentStrip: medicine?.remainingTabletsInCurrentStrip || 0
     });
   };
 

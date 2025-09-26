@@ -4,6 +4,7 @@ export interface Medicine {
   mrp: number;
   strips: number;
   tabletsPerStrip: number;
+  remainingTabletsInCurrentStrip: number; // 0 = current strip is full, >0 = partial strip
   createdAt: Date;
   updatedAt: Date;
 }

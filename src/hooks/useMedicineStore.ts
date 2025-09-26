@@ -29,7 +29,13 @@ export function useMedicineStore() {
     const savedSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
 
     if (savedMedicines) {
-      setMedicines(JSON.parse(savedMedicines));
+      const parsedMedicines = JSON.parse(savedMedicines);
+      // Migrate existing medicines to include remainingTabletsInCurrentStrip field
+      const migratedMedicines = parsedMedicines.map((med: any) => ({
+        ...med,
+        remainingTabletsInCurrentStrip: med.remainingTabletsInCurrentStrip ?? 0
+      }));
+      setMedicines(migratedMedicines);
     }
     if (savedSales) {
       setSales(JSON.parse(savedSales));
@@ -80,15 +86,41 @@ export function useMedicineStore() {
     const medicine = medicines.find(m => m.id === medicineId);
     if (!medicine) return false;
 
-    const totalTablets = medicine.strips * medicine.tabletsPerStrip;
+    // Calculate total available tablets
+    const totalTablets = medicine.strips * medicine.tabletsPerStrip + medicine.remainingTabletsInCurrentStrip;
     if (tabletsCount > totalTablets) return false;
 
-    // Calculate new stock
-    const remainingTablets = totalTablets - tabletsCount;
-    const newStrips = Math.floor(remainingTablets / medicine.tabletsPerStrip);
+    // Calculate new stock after sale
+    let newStrips = medicine.strips;
+    let newRemainingTablets = medicine.remainingTabletsInCurrentStrip;
+    let tabletsToSell = tabletsCount;
+
+    // First, sell from remaining tablets in current strip
+    if (newRemainingTablets > 0) {
+      const tabletsFromCurrentStrip = Math.min(tabletsToSell, newRemainingTablets);
+      newRemainingTablets -= tabletsFromCurrentStrip;
+      tabletsToSell -= tabletsFromCurrentStrip;
+    }
+
+    // If we still have tablets to sell, start selling full strips
+    while (tabletsToSell > 0 && newStrips > 0) {
+      if (tabletsToSell >= medicine.tabletsPerStrip) {
+        // Sell a full strip
+        newStrips--;
+        tabletsToSell -= medicine.tabletsPerStrip;
+      } else {
+        // Sell partial strip - convert one strip to remaining tablets
+        newStrips--;
+        newRemainingTablets = medicine.tabletsPerStrip - tabletsToSell;
+        tabletsToSell = 0;
+      }
+    }
     
     // Update medicine stock
-    updateMedicine(medicineId, { strips: newStrips });
+    updateMedicine(medicineId, { 
+      strips: newStrips,
+      remainingTabletsInCurrentStrip: newRemainingTablets
+    });
 
     // Add sale record
     const newSale: Sale = {
@@ -106,7 +138,7 @@ export function useMedicineStore() {
 
   // Stock calculations
   const getStockInfo = (medicine: Medicine): StockInfo => {
-    const totalTablets = medicine.strips * medicine.tabletsPerStrip;
+    const totalTablets = medicine.strips * medicine.tabletsPerStrip + medicine.remainingTabletsInCurrentStrip;
     
     let level: StockLevel;
     let message: string;
@@ -122,7 +154,11 @@ export function useMedicineStore() {
       message = `Low stock: ${totalTablets} tablets`;
     } else {
       level = 'good';
-      message = `In stock: ${totalTablets} tablets`;
+      if (medicine.remainingTabletsInCurrentStrip > 0) {
+        message = `${medicine.strips} strips + ${medicine.remainingTabletsInCurrentStrip} tablets`;
+      } else {
+        message = `${medicine.strips} strips (${totalTablets} tablets)`;
+      }
     }
 
     return { totalTablets, level, message };
