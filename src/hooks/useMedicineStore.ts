@@ -38,7 +38,13 @@ export function useMedicineStore() {
       setMedicines(migratedMedicines);
     }
     if (savedSales) {
-      setSales(JSON.parse(savedSales));
+      const parsedSales = JSON.parse(savedSales);
+      // Convert saleDate strings back to Date objects
+      const migratedSales = parsedSales.map((sale: any) => ({
+        ...sale,
+        saleDate: new Date(sale.saleDate)
+      }));
+      setSales(migratedSales);
     }
     if (savedSettings) {
       setSettings(JSON.parse(savedSettings));
@@ -167,7 +173,9 @@ export function useMedicineStore() {
   // Reports
   const getDailySales = (): DailySales[] => {
     const salesByDate = sales.reduce((acc, sale) => {
-      const dateStr = sale.saleDate.toISOString().split('T')[0];
+      // Handle both Date objects and date strings
+      const saleDate = sale.saleDate instanceof Date ? sale.saleDate : new Date(sale.saleDate);
+      const dateStr = saleDate.toISOString().split('T')[0];
       
       if (!acc[dateStr]) {
         acc[dateStr] = {

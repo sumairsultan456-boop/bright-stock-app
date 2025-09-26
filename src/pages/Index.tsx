@@ -42,11 +42,10 @@ const Index = () => {
 
   // Calculate today's sales
   const today = new Date().toISOString().split('T')[0];
-  const todaySales = sales.filter(sale => 
-    sale.saleDate.toISOString?.() ? 
-    sale.saleDate.toISOString().split('T')[0] === today :
-    new Date(sale.saleDate).toISOString().split('T')[0] === today
-  );
+  const todaySales = sales.filter(sale => {
+    const saleDate = sale.saleDate instanceof Date ? sale.saleDate : new Date(sale.saleDate);
+    return saleDate.toISOString().split('T')[0] === today;
+  });
   
   const totalSalesValue = sales.reduce((sum, sale) => sum + sale.totalValue, 0);
   const totalSalesToday = todaySales.reduce((sum, sale) => sum + sale.tabletsCount, 0);
