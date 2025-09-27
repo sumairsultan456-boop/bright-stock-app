@@ -14,33 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
-      "Medical stock": {
+      import_logs: {
         Row: {
-          id: number
-          medicine_name: string
-          "MRP-Price per Unit": number | null
-          "No. Of main unit (stripper or boxes)": number | null
-          "stock_quantitiy_no.": number | null
-          "Strip/box unit available": number | null
-          "Tablet units available": number | null
+          error_details: Json | null
+          failed_records: number | null
+          file_name: string
+          id: string
+          import_type: string
+          imported_at: string | null
+          successful_records: number | null
+          total_records: number | null
+          user_id: string
         }
         Insert: {
-          id?: number
-          medicine_name: string
-          "MRP-Price per Unit"?: number | null
-          "No. Of main unit (stripper or boxes)"?: number | null
-          "stock_quantitiy_no."?: number | null
-          "Strip/box unit available"?: number | null
-          "Tablet units available"?: number | null
+          error_details?: Json | null
+          failed_records?: number | null
+          file_name: string
+          id?: string
+          import_type: string
+          imported_at?: string | null
+          successful_records?: number | null
+          total_records?: number | null
+          user_id: string
         }
         Update: {
-          id?: number
-          medicine_name?: string
-          "MRP-Price per Unit"?: number | null
-          "No. Of main unit (stripper or boxes)"?: number | null
-          "stock_quantitiy_no."?: number | null
-          "Strip/box unit available"?: number | null
-          "Tablet units available"?: number | null
+          error_details?: Json | null
+          failed_records?: number | null
+          file_name?: string
+          id?: string
+          import_type?: string
+          imported_at?: string | null
+          successful_records?: number | null
+          total_records?: number | null
+          user_id?: string
         }
         Relationships: []
       }
@@ -100,6 +106,47 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      notifications: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_read: boolean | null
+          medicine_id: string | null
+          message: string
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          medicine_id?: string | null
+          message: string
+          title: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          medicine_id?: string | null
+          message?: string
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_medicine_id_fkey"
+            columns: ["medicine_id"]
+            isOneToOne: false
+            referencedRelation: "medicines"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
