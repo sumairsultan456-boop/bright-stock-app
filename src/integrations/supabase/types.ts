@@ -14,7 +14,203 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      "Medical stock": {
+        Row: {
+          id: number
+          medicine_name: string
+          "MRP-Price per Unit": number | null
+          "No. Of main unit (stripper or boxes)": number | null
+          "stock_quantitiy_no.": number | null
+          "Strip/box unit available": number | null
+          "Tablet units available": number | null
+        }
+        Insert: {
+          id?: number
+          medicine_name: string
+          "MRP-Price per Unit"?: number | null
+          "No. Of main unit (stripper or boxes)"?: number | null
+          "stock_quantitiy_no."?: number | null
+          "Strip/box unit available"?: number | null
+          "Tablet units available"?: number | null
+        }
+        Update: {
+          id?: number
+          medicine_name?: string
+          "MRP-Price per Unit"?: number | null
+          "No. Of main unit (stripper or boxes)"?: number | null
+          "stock_quantitiy_no."?: number | null
+          "Strip/box unit available"?: number | null
+          "Tablet units available"?: number | null
+        }
+        Relationships: []
+      }
+      medicines: {
+        Row: {
+          batch_number: string | null
+          category: string
+          created_at: string | null
+          custom_unit_name: string | null
+          description: string | null
+          expiry_date: string | null
+          id: string
+          manufacturer: string | null
+          mrp: number
+          name: string
+          remaining_tablets_in_current_strip: number | null
+          strips: number | null
+          tablets_per_strip: number | null
+          unit_type: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          batch_number?: string | null
+          category?: string
+          created_at?: string | null
+          custom_unit_name?: string | null
+          description?: string | null
+          expiry_date?: string | null
+          id?: string
+          manufacturer?: string | null
+          mrp: number
+          name: string
+          remaining_tablets_in_current_strip?: number | null
+          strips?: number | null
+          tablets_per_strip?: number | null
+          unit_type?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          batch_number?: string | null
+          category?: string
+          created_at?: string | null
+          custom_unit_name?: string | null
+          description?: string | null
+          expiry_date?: string | null
+          id?: string
+          manufacturer?: string | null
+          mrp?: number
+          name?: string
+          remaining_tablets_in_current_strip?: number | null
+          strips?: number | null
+          tablets_per_strip?: number | null
+          unit_type?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string | null
+          email: string | null
+          full_name: string | null
+          id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email?: string | null
+          full_name?: string | null
+          id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      sales: {
+        Row: {
+          id: string
+          medicine_id: string
+          medicine_name: string
+          notes: string | null
+          quantity_sold: number
+          sale_date: string | null
+          total_amount: number
+          unit_price: number
+          unit_type: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          medicine_id: string
+          medicine_name: string
+          notes?: string | null
+          quantity_sold: number
+          sale_date?: string | null
+          total_amount: number
+          unit_price: number
+          unit_type: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          medicine_id?: string
+          medicine_name?: string
+          notes?: string | null
+          quantity_sold?: number
+          sale_date?: string | null
+          total_amount?: number
+          unit_price?: number
+          unit_type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_medicine_id_fkey"
+            columns: ["medicine_id"]
+            isOneToOne: false
+            referencedRelation: "medicines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_settings: {
+        Row: {
+          created_at: string | null
+          critical_stock_threshold: number | null
+          currency: string | null
+          expiry_alert_days: number | null
+          id: string
+          low_stock_threshold: number | null
+          notifications_enabled: boolean | null
+          theme: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          critical_stock_threshold?: number | null
+          currency?: string | null
+          expiry_alert_days?: number | null
+          id?: string
+          low_stock_threshold?: number | null
+          notifications_enabled?: boolean | null
+          theme?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          critical_stock_threshold?: number | null
+          currency?: string | null
+          expiry_alert_days?: number | null
+          id?: string
+          low_stock_threshold?: number | null
+          notifications_enabled?: boolean | null
+          theme?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
