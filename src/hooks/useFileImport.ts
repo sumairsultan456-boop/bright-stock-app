@@ -10,9 +10,9 @@ export interface ImportRow {
   strips: number;
   tablets_per_strip: number;
   remaining_tablets_in_current_strip: number;
-  expire_date: string;
+  expiry_date: string;
   description?: string;
-  category?: string;
+  category: string;
   unit_type: string;
 }
 
@@ -69,9 +69,9 @@ export const useFileImport = () => {
         strips,
         tablets_per_strip: tabletsPerStrip,
         remaining_tablets_in_current_strip: remainingTablets,
-        expire_date: expireDate,
+        expiry_date: expireDate,
         description: row.description || row.Description || '',
-        category: row.category || row.Category || 'General',
+        category: row.category || row.Category || 'medicine',
         unit_type: row.unit_type || row['Unit Type'] || row.unitType || 'tablet'
       };
 

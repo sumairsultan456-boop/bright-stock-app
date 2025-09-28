@@ -8,6 +8,7 @@ import * as XLSX from 'xlsx';
 
 interface DailyReport {
   id: string;
+  user_id: string;
   date: string;
   sales_count: number;
   total_revenue: number;
@@ -15,6 +16,7 @@ interface DailyReport {
   expiring_items: number;
   report_data: any;
   created_at: string;
+  updated_at: string;
 }
 
 export const useDailyBackup = () => {
@@ -34,7 +36,7 @@ export const useDailyBackup = () => {
         .limit(30);
 
       if (error) throw error;
-      setReports(data || []);
+      setReports((data as DailyReport[]) || []);
     } catch (error: any) {
       console.error('Error fetching reports:', error);
     }
@@ -102,7 +104,7 @@ export const useDailyBackup = () => {
       }) || [];
 
       const expiringItems = medicines?.filter(medicine => {
-        const expiryDate = new Date(medicine.expire_date);
+        const expiryDate = new Date(medicine.expiry_date);
         const today = new Date();
         const daysDiff = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
         return daysDiff <= expiryDays && daysDiff >= 0;
@@ -139,6 +141,8 @@ export const useDailyBackup = () => {
         })
         .select()
         .single();
+
+      if (reportError) throw reportError;
 
       if (reportError) throw reportError;
 
@@ -203,10 +207,11 @@ export const useDailyBackup = () => {
         item.category || 'N/A'
       ]);
 
+      const previousTable = (doc as any).lastAutoTable;
       autoTable(doc, {
         head: [['Medicine', 'Stock', 'Category']],
         body: lowStockData,
-        startY: doc.lastAutoTable ? doc.lastAutoTable.finalY + 20 : 150,
+        startY: previousTable ? previousTable.finalY + 20 : 150,
         headStyles: { fillColor: [217, 83, 79] }
       });
     }
@@ -263,7 +268,7 @@ export const useDailyBackup = () => {
           item.name,
           item.strips * item.tablets_per_strip + item.remaining_tablets_in_current_strip,
           item.category || 'N/A',
-          item.expire_date
+          item.expiry_date
         ])
       ];
       const lowStockSheet = XLSX.utils.aoa_to_sheet(lowStockData);
