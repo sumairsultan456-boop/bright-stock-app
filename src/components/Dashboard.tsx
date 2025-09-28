@@ -1,4 +1,4 @@
-import { Medicine, StockInfo } from '@/types/medicine';
+import { Medicine, StockInfo } from '@/types/database';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { AlertTriangle, Package, TrendingUp, IndianRupee } from 'lucide-react';

@@ -1,362 +1,386 @@
-import { useState, useEffect, useRef } from 'react';
-import { Medicine, UnitType } from '@/types/medicine';
-import { useMedicineStore } from '@/hooks/useMedicineStore';
+import React, { useState, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { 
+  Search, 
+  Plus, 
+  Settings, 
+  BarChart3, 
+  Package2, 
+  User,
+  LogOut,
+  Moon,
+  Sun,
+  Bell,
+  Filter,
+  Upload
+} from 'lucide-react';
+import { Navigation, TabType } from '@/components/Navigation';
+import { AlphabetNavigator } from '@/components/AlphabetNavigator';
 import { MedicineCard } from '@/components/MedicineCard';
 import { MedicineForm } from '@/components/MedicineForm';
 import { SalesForm } from '@/components/SalesForm';
 import { Dashboard } from '@/components/Dashboard';
-import { Navigation, TabType } from '@/components/Navigation';
-import { AlphabetNavigator } from '@/components/AlphabetNavigator';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { useToast } from '@/hooks/use-toast';
-import { Plus, Search, Pill } from 'lucide-react';
+import { ImportDialog } from '@/components/ImportDialog';
+import { ThemeToggle } from '@/components/ThemeToggle';
+import { useAuth } from '@/hooks/useAuth';
+import { useSupabaseMedicines } from '@/hooks/useSupabaseMedicines';
+import { Medicine, DailySales } from '@/types/database';
+import { toast } from '@/hooks/use-toast';
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState<TabType>('inventory');
+  const [searchQuery, setSearchQuery] = useState('');
   const [showMedicineForm, setShowMedicineForm] = useState(false);
   const [showSalesForm, setShowSalesForm] = useState(false);
   const [editingMedicine, setEditingMedicine] = useState<Medicine | null>(null);
-  const [sellingMedicine, setSellingMedicine] = useState<Medicine | null>(null);
-  const [sellingUnitType, setSellingUnitType] = useState<UnitType>('tablet');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedUnitTypes, setSelectedUnitTypes] = useState<Record<string, UnitType>>({});
-  const medicineListRef = useRef<HTMLDivElement>(null);
-  const { toast } = useToast();
+  const [selectedMedicine, setSelectedMedicine] = useState<Medicine | null>(null);
+  const [selectedUnitTypes, setSelectedUnitTypes] = useState<Record<string, string>>({});
 
+  const { user, signOut } = useAuth();
   const {
     medicines,
     sales,
     settings,
+    loading,
     addMedicine,
     updateMedicine,
     deleteMedicine,
     addSale,
     getStockInfo,
-    getDailySales,
     updateSettings
-  } = useMedicineStore();
+  } = useSupabaseMedicines();
 
-  // Filter and sort medicines alphabetically
+  // Filter and sort medicines
   const filteredMedicines = medicines
-    .filter(medicine =>
+    .filter(medicine => 
       medicine.name.toLowerCase().includes(searchQuery.toLowerCase())
     )
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  // Initialize unit types for new medicines
-  useEffect(() => {
-    medicines.forEach(medicine => {
-      if (!selectedUnitTypes[medicine.id]) {
-        setSelectedUnitTypes(prev => ({
-          ...prev,
-          [medicine.id]: medicine.unitType || (medicine.category === 'medicine' ? 'strip' : 'pack')
-        }));
-      }
-    });
-  }, [medicines, selectedUnitTypes]);
+  const handleLetterSelect = (letter: string) => {
+    const element = document.getElementById(`medicine-${letter}`);
+    element?.scrollIntoView({ behavior: 'smooth' });
+  };
 
-  // Handle unit type changes
-  const handleUnitTypeChange = (medicineId: string, unitType: UnitType) => {
+  const handleSaveMedicine = async (medicineData: Omit<Medicine, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => {
+    try {
+      if (editingMedicine) {
+        await updateMedicine(editingMedicine.id, medicineData);
+      } else {
+        await addMedicine(medicineData);
+      }
+      setShowMedicineForm(false);
+      setEditingMedicine(null);
+    } catch (error) {
+      console.error('Error saving medicine:', error);
+    }
+  };
+
+  const handleDeleteMedicine = async (medicineId: string) => {
+    if (window.confirm('Are you sure you want to delete this medicine?')) {
+      try {
+        await deleteMedicine(medicineId);
+      } catch (error) {
+        console.error('Error deleting medicine:', error);
+      }
+    }
+  };
+
+  const handleSellMedicine = async (medicine: Medicine, unitType: string, quantity: number) => {
+    try {
+      await addSale(medicine.id, unitType, quantity);
+      setShowSalesForm(false);
+      setSelectedMedicine(null);
+    } catch (error) {
+      console.error('Error recording sale:', error);
+    }
+  };
+
+  const handleUnitTypeChange = (medicineId: string, unitType: string) => {
     setSelectedUnitTypes(prev => ({
       ...prev,
       [medicineId]: unitType
     }));
   };
 
-  // Handle letter navigation
-  const handleLetterSelect = (letter: string) => {
-    const firstMedicineWithLetter = filteredMedicines.find(
-      medicine => medicine.name.charAt(0).toUpperCase() === letter
-    );
-    
-    if (firstMedicineWithLetter && medicineListRef.current) {
-      const medicineElement = document.getElementById(`medicine-${firstMedicineWithLetter.id}`);
-      if (medicineElement) {
-        medicineElement.scrollIntoView({ 
-          behavior: 'smooth', 
-          block: 'start',
-          inline: 'nearest'
-        });
-      }
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+    } catch (error) {
+      console.error('Error signing out:', error);
     }
   };
 
-  // Calculate today's sales
-  const today = new Date().toISOString().split('T')[0];
+  // Calculate totals for dashboard
+  const totalSalesValue = sales.reduce((sum, sale) => sum + sale.total_amount, 0);
   const todaySales = sales.filter(sale => {
-    const saleDate = sale.saleDate instanceof Date ? sale.saleDate : new Date(sale.saleDate);
-    return saleDate.toISOString().split('T')[0] === today;
+    const today = new Date().toDateString();
+    const saleDate = new Date(sale.sale_date).toDateString();
+    return today === saleDate;
   });
-  
-  const totalSalesValue = sales.reduce((sum, sale) => sum + sale.totalValue, 0);
-  const totalSalesToday = todaySales.reduce((sum, sale) => sum + sale.tabletsCount, 0);
+  const totalSalesToday = todaySales.reduce((sum, sale) => sum + sale.total_amount, 0);
 
-  const handleSaveMedicine = (medicineData: Omit<Medicine, 'id' | 'createdAt' | 'updatedAt'>) => {
-    if (editingMedicine) {
-      updateMedicine(editingMedicine.id, medicineData);
-      toast({
-        title: "Medicine updated",
-        description: "Medicine information has been updated successfully.",
-      });
-    } else {
-      addMedicine(medicineData);
-      toast({
-        title: "Medicine added",
-        description: "New medicine has been added to inventory.",
-      });
-    }
-    setShowMedicineForm(false);
-    setEditingMedicine(null);
-  };
-
-  const handleDeleteMedicine = (id: string) => {
-    const medicine = medicines.find(m => m.id === id);
-    if (medicine && window.confirm(`Are you sure you want to delete ${medicine.name}?`)) {
-      deleteMedicine(id);
-      toast({
-        title: "Medicine deleted",
-        description: "Medicine has been removed from inventory.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleSellMedicine = (tabletsCount: number) => {
-    if (sellingMedicine) {
-      const success = addSale(sellingMedicine.id, tabletsCount);
-      if (success) {
-        const unitType = sellingUnitType;
-        let displayCount = tabletsCount;
-        let unitName = 'tablets';
-        
-        if (unitType === 'strip') {
-          displayCount = Math.ceil(tabletsCount / sellingMedicine.tabletsPerStrip);
-          unitName = 'strips';
-        }
-        
-        const totalValue = (tabletsCount * sellingMedicine.mrp) / sellingMedicine.tabletsPerStrip;
-        toast({
-          title: "Sale recorded",
-          description: `Sold ${displayCount} ${unitName} for ₹${totalValue.toFixed(2)}`,
-        });
-      } else {
-        toast({
-          title: "Sale failed",
-          description: "Not enough stock available.",
-          variant: "destructive",
-        });
-      }
-    }
-    setShowSalesForm(false);
-    setSellingMedicine(null);
-    setSellingUnitType('tablet');
-  };
-
-  const dailySalesData = getDailySales();
+  // Group medicines by first letter for alphabet navigation
+  const medicinesByLetter = filteredMedicines.reduce((acc, medicine) => {
+    const letter = medicine.name[0]?.toUpperCase() || '#';
+    if (!acc[letter]) acc[letter] = [];
+    acc[letter].push(medicine);
+    return acc;
+  }, {} as Record<string, Medicine[]>);
 
   const renderInventoryTab = () => (
-    <div className="space-y-4 pb-20">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-primary to-primary-glow text-primary-foreground p-6 rounded-lg">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold mb-2">Medicine Inventory</h1>
-            <p className="opacity-90">Manage your medicine stock efficiently</p>
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+        <div className="flex-1 w-full sm:max-w-md">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+            <Input
+              placeholder="Search medicines..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
           </div>
-          <Pill className="h-8 w-8 opacity-80" />
+        </div>
+        <div className="flex gap-2">
+          <ImportDialog onImport={() => {}} />
+          <Button 
+            onClick={() => setShowMedicineForm(true)}
+            className="whitespace-nowrap"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add Medicine
+          </Button>
         </div>
       </div>
 
-      {/* Search and Add */}
-      <div className="flex gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-          <Input
-            placeholder="Search medicines..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
+      <div className="flex gap-6">
+        <div className="flex-1">
+          <div className="grid gap-4">
+            {Object.entries(medicinesByLetter).map(([letter, medicines]) => (
+              <div key={letter} id={`medicine-${letter}`}>
+                <div className="sticky top-0 bg-background/95 backdrop-blur-sm py-2 mb-4 border-b">
+                  <h3 className="text-lg font-semibold text-foreground">{letter}</h3>
+                </div>
+                <div className="grid gap-4">
+                  {medicines.map((medicine) => (
+                    <MedicineCard
+                      key={medicine.id}
+                      medicine={medicine}
+                      stockInfo={getStockInfo(medicine)}
+                      selectedUnitType={selectedUnitTypes[medicine.id] || medicine.unit_type}
+                      onEdit={(medicine) => {
+                        setEditingMedicine(medicine);
+                        setShowMedicineForm(true);
+                      }}
+                      onDelete={handleDeleteMedicine}
+                      onSell={(medicine, unitType) => {
+                        setSelectedMedicine(medicine);
+                        setSelectedUnitTypes(prev => ({ ...prev, [medicine.id]: unitType }));
+                        setShowSalesForm(true);
+                      }}
+                      onUnitTypeChange={handleUnitTypeChange}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {filteredMedicines.length === 0 && (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <Package2 className="h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold text-center mb-2">No medicines found</h3>
+                <p className="text-muted-foreground text-center mb-4">
+                  {searchQuery 
+                    ? `No medicines match "${searchQuery}". Try a different search term.`
+                    : "Get started by adding your first medicine to the inventory."
+                  }
+                </p>
+                <Button onClick={() => setShowMedicineForm(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add First Medicine
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        <div className="hidden lg:block">
+          <AlphabetNavigator 
+            medicines={filteredMedicines}
+            onLetterSelect={handleLetterSelect}
           />
         </div>
-        <Button
-          variant="mobile"
-          size="mobile"
-          onClick={() => setShowMedicineForm(true)}
-          className="shrink-0"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Add
-        </Button>
       </div>
-
-      {/* Medicine List */}
-      {filteredMedicines.length === 0 ? (
-        <Card>
-          <CardContent className="p-8 text-center">
-            <Pill className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="font-medium text-lg mb-2">No medicines found</h3>
-            <p className="text-muted-foreground mb-4">
-              {searchQuery ? 'No medicines match your search.' : 'Add your first medicine to get started.'}
-            </p>
-            {!searchQuery && (
-              <Button variant="mobile" onClick={() => setShowMedicineForm(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add First Medicine
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-4" ref={medicineListRef}>
-          {filteredMedicines.map(medicine => (
-            <div key={medicine.id} id={`medicine-${medicine.id}`}>
-              <MedicineCard
-                medicine={medicine}
-                stockInfo={getStockInfo(medicine)}
-                selectedUnitType={selectedUnitTypes[medicine.id] || medicine.unitType || 'strip'}
-                onEdit={(med) => {
-                  setEditingMedicine(med);
-                  setShowMedicineForm(true);
-                }}
-                onDelete={handleDeleteMedicine}
-                onSell={(med, unitType) => {
-                  setSellingMedicine(med);
-                  setSellingUnitType(unitType);
-                  setShowSalesForm(true);
-                }}
-                onUnitTypeChange={handleUnitTypeChange}
-              />
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 
   const renderReportsTab = () => (
-    <div className="space-y-4 pb-20">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-primary to-primary-glow text-primary-foreground p-6 rounded-lg">
-        <h1 className="text-2xl font-bold mb-2">Reports & Analytics</h1>
-        <p className="opacity-90">Track sales and inventory insights</p>
-      </div>
-
-      <Dashboard
+    <div className="space-y-6">
+      <Dashboard 
         medicines={medicines}
         getStockInfo={getStockInfo}
         totalSalesValue={totalSalesValue}
         totalSalesToday={totalSalesToday}
       />
-
-      {/* Sales History */}
-      {dailySalesData.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Sales</CardTitle>
-          </CardHeader>
-          <CardContent>
+      
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent Sales</CardTitle>
+          <CardDescription>Latest transactions in your store</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {sales.length > 0 ? (
             <div className="space-y-3">
-              {dailySalesData.slice(0, 5).map((dayData) => (
-                <div key={dayData.date} className="border-b border-border pb-3 last:border-0">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <p className="font-medium">
-                        {new Date(dayData.date).toLocaleDateString()}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {dayData.totalSales} tablets sold
-                      </p>
-                    </div>
-                    <p className="font-semibold text-success">
-                      ₹{dayData.totalValue.toFixed(2)}
+              {sales.slice(0, 10).map((sale) => (
+                <div key={sale.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                  <div className="flex-1">
+                    <p className="font-medium">{sale.medicine_name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {sale.quantity_sold} {sale.unit_type}(s) × ₹{sale.unit_price}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-semibold">₹{sale.total_amount}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(sale.sale_date).toLocaleDateString()}
                     </p>
                   </div>
                 </div>
               ))}
             </div>
-          </CardContent>
-        </Card>
-      )}
+          ) : (
+            <p className="text-muted-foreground text-center py-8">No sales recorded yet</p>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 
   const renderSettingsTab = () => (
-    <div className="space-y-4 pb-20">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-primary to-primary-glow text-primary-foreground p-6 rounded-lg">
-        <h1 className="text-2xl font-bold mb-2">Settings</h1>
-        <p className="opacity-90">Configure your inventory preferences</p>
-      </div>
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Account Settings</CardTitle>
+              <CardDescription>Manage your account preferences</CardDescription>
+            </div>
+            <ThemeToggle />
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between py-2">
+            <div>
+              <p className="font-medium">Email</p>
+              <p className="text-sm text-muted-foreground">{user?.email}</p>
+            </div>
+          </div>
+          
+          <div className="flex items-center justify-between py-2">
+            <div>
+              <p className="font-medium">User ID</p>
+              <p className="text-sm text-muted-foreground font-mono">{user?.id?.slice(0, 8)}...</p>
+            </div>
+          </div>
+
+          <div className="pt-4 border-t">
+            <Button variant="destructive" onClick={handleSignOut}>
+              <LogOut className="h-4 w-4 mr-2" />
+              Sign Out
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Stock Thresholds</CardTitle>
+          <CardTitle>Stock Alerts</CardTitle>
+          <CardDescription>Configure when to receive low stock alerts</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label>Low Stock Threshold</Label>
-            <Input
-              type="number"
-              value={settings.lowStockThreshold}
-              onChange={(e) => updateSettings({
-                ...settings,
-                lowStockThreshold: Number(e.target.value)
-              })}
-              placeholder="20"
-            />
-            <p className="text-xs text-muted-foreground">
-              Show warning when tablets fall below this number
-            </p>
-          </div>
-          
-          <div className="space-y-2">
-            <Label>Critical Stock Threshold</Label>
-            <Input
-              type="number"
-              value={settings.criticalStockThreshold}
-              onChange={(e) => updateSettings({
-                ...settings,
-                criticalStockThreshold: Number(e.target.value)
-              })}
-              placeholder="5"
-            />
-            <p className="text-xs text-muted-foreground">
-              Show critical alert when tablets fall below this number
-            </p>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium">Low Stock Threshold</label>
+              <Input 
+                type="number" 
+                value={settings?.low_stock_threshold || 10}
+                onChange={(e) => updateSettings({ low_stock_threshold: parseInt(e.target.value) })}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Critical Stock Threshold</label>
+              <Input 
+                type="number" 
+                value={settings?.critical_stock_threshold || 5}
+                onChange={(e) => updateSettings({ critical_stock_threshold: parseInt(e.target.value) })}
+                className="mt-1"
+              />
+            </div>
           </div>
         </CardContent>
       </Card>
     </div>
   );
 
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
+      {/* Header */}
+      <header className="border-b bg-card sticky top-0 z-40">
+        <div className="container mx-auto px-4">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center space-x-4">
+              <Package2 className="h-8 w-8 text-primary" />
+              <h1 className="text-xl font-bold">MediTrack Pro</h1>
+            </div>
+            <div className="flex items-center space-x-2">
+              <ThemeToggle />
+              <Button variant="ghost" size="sm">
+                <Bell className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="sm" onClick={handleSignOut}>
+                <LogOut className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      </header>
+
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-6">
-        {activeTab === 'inventory' && renderInventoryTab()}
-        {activeTab === 'sales' && renderInventoryTab()} {/* Sales tab shows inventory with sell focus */}
-        {activeTab === 'reports' && renderReportsTab()}
-        {activeTab === 'settings' && renderSettingsTab()}
-      </main>
+      <div className="container mx-auto p-4">
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as TabType)}>
+          <Navigation activeTab={activeTab} onTabChange={setActiveTab} />
+          
+          <div className="mt-6">
+            <TabsContent value="inventory">{renderInventoryTab()}</TabsContent>
+            <TabsContent value="reports">{renderReportsTab()}</TabsContent>
+            <TabsContent value="settings">{renderSettingsTab()}</TabsContent>
+          </div>
+        </Tabs>
+      </div>
 
-      {/* Navigation */}
-      <Navigation activeTab={activeTab} onTabChange={setActiveTab} />
-
-      {/* Alphabet Navigator - only show on inventory tab */}
-      {activeTab === 'inventory' && filteredMedicines.length > 10 && (
-        <AlphabetNavigator
-          medicines={filteredMedicines}
-          onLetterSelect={handleLetterSelect}
-        />
-      )}
-
-      {/* Modals */}
+      {/* Medicine Form Modal */}
       {showMedicineForm && (
         <MedicineForm
-          medicine={editingMedicine || undefined}
+          medicine={editingMedicine}
           onSave={handleSaveMedicine}
           onCancel={() => {
             setShowMedicineForm(false);
@@ -365,14 +389,19 @@ const Index = () => {
         />
       )}
 
-      {showSalesForm && sellingMedicine && (
+      {/* Sales Form Modal */}
+      {showSalesForm && selectedMedicine && (
         <SalesForm
-          medicine={sellingMedicine}
-          maxTablets={getStockInfo(sellingMedicine).totalTablets}
-          onSale={handleSellMedicine}
+          medicine={selectedMedicine}
+          maxTablets={getStockInfo(selectedMedicine).totalTablets}
+          onSale={(quantity) => handleSellMedicine(
+            selectedMedicine, 
+            selectedUnitTypes[selectedMedicine.id] || selectedMedicine.unit_type, 
+            quantity
+          )}
           onCancel={() => {
             setShowSalesForm(false);
-            setSellingMedicine(null);
+            setSelectedMedicine(null);
           }}
         />
       )}

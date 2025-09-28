@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Medicine } from '@/types/medicine';
+import { Medicine } from '@/types/database';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -49,11 +49,11 @@ export function SalesForm({ medicine, maxTablets, onSale, onCancel }: SalesFormP
 
   const calculateTotal = () => {
     const count = Number(tabletsCount) || 0;
-    const pricePerTablet = medicine.mrp / medicine.tabletsPerStrip;
+    const pricePerTablet = medicine.mrp / (medicine.tablets_per_strip || 1);
     return (count * pricePerTablet).toFixed(2);
   };
 
-  const quickSellOptions = [1, 5, 10, medicine.tabletsPerStrip].filter(
+  const quickSellOptions = [1, 5, 10, medicine.tablets_per_strip || 1].filter(
     (option) => option <= maxTablets
   );
 
@@ -90,7 +90,7 @@ export function SalesForm({ medicine, maxTablets, onSale, onCancel }: SalesFormP
             <div className="flex justify-between items-center">
               <span className="text-sm font-medium">Price per Tablet:</span>
               <span className="text-sm font-semibold">
-                ₹{(medicine.mrp / medicine.tabletsPerStrip).toFixed(2)}
+                ₹{(medicine.mrp / (medicine.tablets_per_strip || 1)).toFixed(2)}
               </span>
             </div>
           </div>
@@ -108,7 +108,7 @@ export function SalesForm({ medicine, maxTablets, onSale, onCancel }: SalesFormP
                     onClick={() => handleInputChange(count.toString())}
                     className="text-xs"
                   >
-                    {count} {count === medicine.tabletsPerStrip ? 'strip' : 'tablets'}
+                    {count} {count === (medicine.tablets_per_strip || 1) ? 'strip' : 'tablets'}
                   </Button>
                 ))}
               </div>

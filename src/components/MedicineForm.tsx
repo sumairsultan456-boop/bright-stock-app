@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Medicine, UnitType } from '@/types/medicine';
+import { Medicine, UnitType } from '@/types/database';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,7 +9,7 @@ import { X, Package, Pill, Box } from 'lucide-react';
 
 interface MedicineFormProps {
   medicine?: Medicine;
-  onSave: (medicineData: Omit<Medicine, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  onSave: (medicineData: Omit<Medicine, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => void;
   onCancel: () => void;
 }
 
@@ -18,11 +18,11 @@ export function MedicineForm({ medicine, onSave, onCancel }: MedicineFormProps) 
     name: medicine?.name || '',
     mrp: medicine?.mrp || '',
     strips: medicine?.strips || '',
-    tabletsPerStrip: medicine?.tabletsPerStrip || '',
-    remainingTabletsInCurrentStrip: medicine?.remainingTabletsInCurrentStrip || 0,
-    unitType: medicine?.unitType || 'strip',
+    tablets_per_strip: medicine?.tablets_per_strip || '',
+    remaining_tablets_in_current_strip: medicine?.remaining_tablets_in_current_strip || 0,
+    unit_type: medicine?.unit_type || 'strip',
     category: medicine?.category || 'medicine',
-    customUnitName: medicine?.customUnitName || ''
+    custom_unit_name: medicine?.custom_unit_name || ''
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -42,8 +42,8 @@ export function MedicineForm({ medicine, onSave, onCancel }: MedicineFormProps) 
       newErrors.strips = 'Number of strips must be 0 or greater';
     }
 
-    if (!formData.tabletsPerStrip || Number(formData.tabletsPerStrip) <= 0) {
-      newErrors.tabletsPerStrip = 'Tablets per strip must be greater than 0';
+    if (!formData.tablets_per_strip || Number(formData.tablets_per_strip) <= 0) {
+      newErrors.tablets_per_strip = 'Tablets per strip must be greater than 0';
     }
 
     setErrors(newErrors);
@@ -59,11 +59,11 @@ export function MedicineForm({ medicine, onSave, onCancel }: MedicineFormProps) 
       name: formData.name.trim(),
       mrp: Number(formData.mrp),
       strips: Number(formData.strips),
-      tabletsPerStrip: Number(formData.tabletsPerStrip),
-      remainingTabletsInCurrentStrip: medicine?.remainingTabletsInCurrentStrip || 0,
-      unitType: formData.unitType as UnitType,
+      tablets_per_strip: Number(formData.tablets_per_strip),
+      remaining_tablets_in_current_strip: medicine?.remaining_tablets_in_current_strip || 0,
+      unit_type: formData.unit_type as UnitType,
       category: formData.category as 'medicine' | 'other',
-      customUnitName: formData.customUnitName || undefined
+      custom_unit_name: formData.custom_unit_name || undefined
     });
   };
 
@@ -139,17 +139,17 @@ export function MedicineForm({ medicine, onSave, onCancel }: MedicineFormProps) 
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="tabletsPerStrip">Tablets per Strip</Label>
+              <Label htmlFor="tablets_per_strip">Tablets per Strip</Label>
               <Input
-                id="tabletsPerStrip"
+                id="tablets_per_strip"
                 type="number"
-                value={formData.tabletsPerStrip}
-                onChange={(e) => handleInputChange('tabletsPerStrip', e.target.value)}
+                value={formData.tablets_per_strip}
+                onChange={(e) => handleInputChange('tablets_per_strip', e.target.value)}
                 placeholder="0"
-                className={errors.tabletsPerStrip ? 'border-destructive' : ''}
+                className={errors.tablets_per_strip ? 'border-destructive' : ''}
               />
-              {errors.tabletsPerStrip && (
-                <p className="text-sm text-destructive">{errors.tabletsPerStrip}</p>
+              {errors.tablets_per_strip && (
+                <p className="text-sm text-destructive">{errors.tablets_per_strip}</p>
               )}
             </div>
 
@@ -184,8 +184,8 @@ export function MedicineForm({ medicine, onSave, onCancel }: MedicineFormProps) 
             <div className="space-y-2">
               <Label>Default Unit Type</Label>
               <Select 
-                value={formData.unitType} 
-                onValueChange={(value) => handleInputChange('unitType', value)}
+                value={formData.unit_type} 
+                onValueChange={(value) => handleInputChange('unit_type', value)}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -241,11 +241,11 @@ export function MedicineForm({ medicine, onSave, onCancel }: MedicineFormProps) 
             {/* Custom Unit Name for Non-Medicine Items */}
             {formData.category === 'other' && (
               <div className="space-y-2">
-                <Label htmlFor="customUnitName">Custom Unit Name (Optional)</Label>
+                <Label htmlFor="custom_unit_name">Custom Unit Name (Optional)</Label>
                 <Input
-                  id="customUnitName"
-                  value={formData.customUnitName}
-                  onChange={(e) => handleInputChange('customUnitName', e.target.value)}
+                  id="custom_unit_name"
+                  value={formData.custom_unit_name}
+                  onChange={(e) => handleInputChange('custom_unit_name', e.target.value)}
                   placeholder="e.g., chocolate bar, bottle"
                 />
               </div>

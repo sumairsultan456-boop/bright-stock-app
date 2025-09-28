@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Medicine } from '@/types/medicine';
+import { Medicine } from '@/types/database';
 import { cn } from '@/lib/utils';
 
 interface AlphabetNavigatorProps {

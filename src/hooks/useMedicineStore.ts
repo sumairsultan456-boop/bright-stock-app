@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Medicine, Sale, DailySales, StockInfo, StockLevel } from '@/types/medicine';
+import { Medicine, Sale, DailySales, StockInfo, StockLevel } from '@/types/database';
 
 const STORAGE_KEYS = {
   MEDICINES: 'medicine-tracker-medicines',
@@ -33,10 +33,10 @@ export function useMedicineStore() {
       // Migrate existing medicines to include new fields
       const migratedMedicines = parsedMedicines.map((med: any) => ({
         ...med,
-        remainingTabletsInCurrentStrip: med.remainingTabletsInCurrentStrip ?? 0,
-        unitType: med.unitType ?? (med.category === 'medicine' ? 'strip' : 'pack'),
+        remaining_tablets_in_current_strip: med.remaining_tablets_in_current_strip ?? 0,
+        unit_type: med.unit_type ?? (med.category === 'medicine' ? 'strip' : 'pack'),
         category: med.category ?? 'medicine',
-        customUnitName: med.customUnitName
+        custom_unit_name: med.custom_unit_name
       }));
       setMedicines(migratedMedicines);
     }
@@ -45,7 +45,7 @@ export function useMedicineStore() {
       // Convert saleDate strings back to Date objects
       const migratedSales = parsedSales.map((sale: any) => ({
         ...sale,
-        saleDate: new Date(sale.saleDate)
+        sale_date: new Date(sale.sale_date || sale.saleDate)
       }));
       setSales(migratedSales);
     }
@@ -68,29 +68,30 @@ export function useMedicineStore() {
   }, [settings]);
 
   // Medicine operations
-  const addMedicine = (medicineData: Omit<Medicine, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const addMedicine = (medicineData: Omit<Medicine, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => {
     const newMedicine: Medicine = {
       ...medicineData,
       id: Date.now().toString(),
+      user_id: 'local', // For local storage compatibility
       // Set defaults for new fields if not provided
-      unitType: medicineData.unitType || (medicineData.category === 'medicine' ? 'strip' : 'pack'),
+      unit_type: medicineData.unit_type || (medicineData.category === 'medicine' ? 'strip' : 'pack'),
       category: medicineData.category || 'medicine',
-      createdAt: new Date(),
-      updatedAt: new Date()
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
     };
     setMedicines(prev => [...prev, newMedicine]);
   };
 
   const updateMedicine = (id: string, updates: Partial<Medicine>) => {
     setMedicines(prev => prev.map(med => 
-      med.id === id ? { ...med, ...updates, updatedAt: new Date() } : med
+      med.id === id ? { ...med, ...updates, updated_at: new Date().toISOString() } : med
     ));
   };
 
   const deleteMedicine = (id: string) => {
     setMedicines(prev => prev.filter(med => med.id !== id));
     // Also remove related sales
-    setSales(prev => prev.filter(sale => sale.medicineId !== id));
+    setSales(prev => prev.filter(sale => sale.medicine_id !== id));
   };
 
   // Sales operations
@@ -99,12 +100,12 @@ export function useMedicineStore() {
     if (!medicine) return false;
 
     // Calculate total available tablets
-    const totalTablets = medicine.strips * medicine.tabletsPerStrip + medicine.remainingTabletsInCurrentStrip;
+    const totalTablets = (medicine.strips || 0) * (medicine.tablets_per_strip || 1) + (medicine.remaining_tablets_in_current_strip || 0);
     if (tabletsCount > totalTablets) return false;
 
     // Calculate new stock after sale
-    let newStrips = medicine.strips;
-    let newRemainingTablets = medicine.remainingTabletsInCurrentStrip;
+    let newStrips = medicine.strips || 0;
+    let newRemainingTablets = medicine.remaining_tablets_in_current_strip || 0;
     let tabletsToSell = tabletsCount;
 
     // First, sell from remaining tablets in current strip
@@ -116,14 +117,14 @@ export function useMedicineStore() {
 
     // If we still have tablets to sell, start selling full strips
     while (tabletsToSell > 0 && newStrips > 0) {
-      if (tabletsToSell >= medicine.tabletsPerStrip) {
+      if (tabletsToSell >= (medicine.tablets_per_strip || 1)) {
         // Sell a full strip
         newStrips--;
-        tabletsToSell -= medicine.tabletsPerStrip;
+        tabletsToSell -= (medicine.tablets_per_strip || 1);
       } else {
         // Sell partial strip - convert one strip to remaining tablets
         newStrips--;
-        newRemainingTablets = medicine.tabletsPerStrip - tabletsToSell;
+        newRemainingTablets = (medicine.tablets_per_strip || 1) - tabletsToSell;
         tabletsToSell = 0;
       }
     }
@@ -131,17 +132,21 @@ export function useMedicineStore() {
     // Update medicine stock
     updateMedicine(medicineId, { 
       strips: newStrips,
-      remainingTabletsInCurrentStrip: newRemainingTablets
+      remaining_tablets_in_current_strip: newRemainingTablets
     });
 
     // Add sale record
     const newSale: Sale = {
       id: Date.now().toString(),
-      medicineId,
-      medicineName: medicine.name,
-      tabletsCount,
-      totalValue: (tabletsCount * medicine.mrp) / medicine.tabletsPerStrip,
-      saleDate: new Date()
+      user_id: 'local',
+      medicine_id: medicineId,
+      medicine_name: medicine.name,
+      unit_type: medicine.unit_type || 'tablet',
+      quantity_sold: tabletsCount,
+      unit_price: medicine.mrp / (medicine.tablets_per_strip || 1),
+      total_amount: (tabletsCount * medicine.mrp) / (medicine.tablets_per_strip || 1),
+      sale_date: new Date().toISOString(),
+      notes: null
     };
     
     setSales(prev => [...prev, newSale]);
@@ -150,7 +155,7 @@ export function useMedicineStore() {
 
   // Stock calculations
   const getStockInfo = (medicine: Medicine): StockInfo => {
-    const totalTablets = medicine.strips * medicine.tabletsPerStrip + medicine.remainingTabletsInCurrentStrip;
+    const totalTablets = (medicine.strips || 0) * (medicine.tablets_per_strip || 1) + (medicine.remaining_tablets_in_current_strip || 0);
     
     let level: StockLevel;
     let message: string;
@@ -166,8 +171,8 @@ export function useMedicineStore() {
       message = `Low stock: ${totalTablets} tablets`;
     } else {
       level = 'good';
-      if (medicine.remainingTabletsInCurrentStrip > 0) {
-        message = `${medicine.strips} strips + ${medicine.remainingTabletsInCurrentStrip} tablets`;
+      if ((medicine.remaining_tablets_in_current_strip || 0) > 0) {
+        message = `${medicine.strips} strips + ${medicine.remaining_tablets_in_current_strip} tablets`;
       } else {
         message = `${medicine.strips} strips (${totalTablets} tablets)`;
       }
@@ -180,7 +185,7 @@ export function useMedicineStore() {
   const getDailySales = (): DailySales[] => {
     const salesByDate = sales.reduce((acc, sale) => {
       // Handle both Date objects and date strings
-      const saleDate = sale.saleDate instanceof Date ? sale.saleDate : new Date(sale.saleDate);
+      const saleDate = new Date(sale.sale_date);
       const dateStr = saleDate.toISOString().split('T')[0];
       
       if (!acc[dateStr]) {
@@ -192,19 +197,19 @@ export function useMedicineStore() {
         };
       }
 
-      acc[dateStr].totalSales += sale.tabletsCount;
-      acc[dateStr].totalValue += sale.totalValue;
+      acc[dateStr].totalSales += sale.quantity_sold;
+      acc[dateStr].totalValue += sale.total_amount;
       
-      const existingMed = acc[dateStr].medicines.find(m => m.medicineId === sale.medicineId);
+      const existingMed = acc[dateStr].medicines.find(m => m.medicineId === sale.medicine_id);
       if (existingMed) {
-        existingMed.tabletsCount += sale.tabletsCount;
-        existingMed.value += sale.totalValue;
+        existingMed.quantity += sale.quantity_sold;
+        existingMed.value += sale.total_amount;
       } else {
         acc[dateStr].medicines.push({
-          medicineId: sale.medicineId,
-          medicineName: sale.medicineName,
-          tabletsCount: sale.tabletsCount,
-          value: sale.totalValue
+          medicineId: sale.medicine_id,
+          medicineName: sale.medicine_name,
+          quantity: sale.quantity_sold,
+          value: sale.total_amount
         });
       }
 
