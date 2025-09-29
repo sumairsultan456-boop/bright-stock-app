@@ -188,9 +188,18 @@ const Index = () => {
       setSelectedMedicine(foundMedicine);
       setShowSalesForm(true);
       setShowBarcodeScanner(false);
+      toast({
+        title: "Product Found",
+        description: `Found ${foundMedicine.name}. Ready to add to sale.`,
+      });
     } else {
-      // Set barcode in search to help user find or add medicine
-      setSearchQuery(barcode);
+      // No medicine found with this barcode - offer to add new product
+      toast({
+        title: "Product Not Found",
+        description: `No product found with barcode ${barcode}. Opening form to add new product.`,
+      });
+      setEditingMedicine({ barcode } as Medicine); // Pre-fill barcode
+      setShowMedicineForm(true);
       setShowBarcodeScanner(false);
     }
   };
