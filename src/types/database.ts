@@ -2,6 +2,7 @@ export interface Medicine {
   id: string;
   user_id: string;
   name: string;
+  barcode?: string;
   category: 'medicine' | 'other';
   mrp: number;
   strips: number;

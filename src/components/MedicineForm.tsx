@@ -16,6 +16,7 @@ interface MedicineFormProps {
 export function MedicineForm({ medicine, onSave, onCancel }: MedicineFormProps) {
   const [formData, setFormData] = useState({
     name: medicine?.name || '',
+    barcode: medicine?.barcode || '',
     mrp: medicine?.mrp || '',
     strips: medicine?.strips || '',
     tablets_per_strip: medicine?.tablets_per_strip || '',
@@ -57,6 +58,7 @@ export function MedicineForm({ medicine, onSave, onCancel }: MedicineFormProps) 
 
     onSave({
       name: formData.name.trim(),
+      barcode: formData.barcode.trim() || undefined,
       mrp: Number(formData.mrp),
       strips: Number(formData.strips),
       tablets_per_strip: Number(formData.tablets_per_strip),
@@ -105,6 +107,16 @@ export function MedicineForm({ medicine, onSave, onCancel }: MedicineFormProps) 
               {errors.name && (
                 <p className="text-sm text-destructive">{errors.name}</p>
               )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="barcode">Barcode/Product Code (Optional)</Label>
+              <Input
+                id="barcode"
+                value={formData.barcode}
+                onChange={(e) => handleInputChange('barcode', e.target.value)}
+                placeholder="Enter or scan barcode"
+              />
             </div>
 
             <div className="space-y-2">

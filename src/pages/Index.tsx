@@ -16,7 +16,9 @@ import {
   Sun,
   Bell,
   Filter,
-  Upload
+  Upload,
+  Download,
+  ScanLine
 } from 'lucide-react';
 import { Navigation, TabType } from '@/components/Navigation';
 import { AlphabetNavigator } from '@/components/AlphabetNavigator';
@@ -28,6 +30,8 @@ import { ImportDialog } from '@/components/ImportDialog';
 import { BarcodeScanner } from '@/components/BarcodeScanner';
 import { ReportsDialog } from '@/components/ReportsDialog';
 import { NotificationCenter } from '@/components/NotificationCenter';
+import { ExportDialog } from '@/components/ExportDialog';
+import { FilterDialog, FilterOptions } from '@/components/FilterDialog';
 import { useDailyBackup } from '@/hooks/useDailyBackup';
 import { useNotifications } from '@/hooks/useNotifications';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -44,6 +48,16 @@ const Index = () => {
   const [editingMedicine, setEditingMedicine] = useState<Medicine | null>(null);
   const [selectedMedicine, setSelectedMedicine] = useState<Medicine | null>(null);
   const [selectedUnitTypes, setSelectedUnitTypes] = useState<Record<string, string>>({});
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
+  const [filters, setFilters] = useState<FilterOptions>({
+    category: 'all',
+    stockLevel: 'all',
+    sortBy: 'name',
+    sortOrder: 'asc',
+    showExpiringSoon: false,
+    showLowStock: false
+  });
 
   const { user, signOut } = useAuth();
   const {
@@ -61,10 +75,65 @@ const Index = () => {
 
   // Filter and sort medicines
   const filteredMedicines = medicines
-    .filter(medicine => 
-      medicine.name.toLowerCase().includes(searchQuery.toLowerCase())
-    )
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .filter(medicine => {
+      // Text search
+      const matchesSearch = medicine.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          (medicine.barcode && medicine.barcode.toLowerCase().includes(searchQuery.toLowerCase()));
+      
+      // Category filter
+      const matchesCategory = filters.category === 'all' || medicine.category === filters.category;
+      
+      // Stock level filter
+      let matchesStockLevel = true;
+      if (filters.stockLevel !== 'all') {
+        const stockInfo = getStockInfo(medicine);
+        matchesStockLevel = stockInfo.level === filters.stockLevel;
+      }
+      
+      // Quick filters
+      let matchesQuickFilters = true;
+      if (filters.showLowStock || filters.showExpiringSoon) {
+        const stockInfo = getStockInfo(medicine);
+        const isLowStock = stockInfo.level === 'low' || stockInfo.level === 'critical';
+        
+        let isExpiring = false;
+        if (medicine.expiry_date) {
+          const expiryDate = new Date(medicine.expiry_date);
+          const today = new Date();
+          const daysDiff = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+          isExpiring = daysDiff <= (settings?.expiry_alert_days || 30) && daysDiff >= 0;
+        }
+        
+        matchesQuickFilters = (!filters.showLowStock || isLowStock) && 
+                            (!filters.showExpiringSoon || isExpiring);
+      }
+      
+      return matchesSearch && matchesCategory && matchesStockLevel && matchesQuickFilters;
+    })
+    .sort((a, b) => {
+      let comparison = 0;
+      
+      switch (filters.sortBy) {
+        case 'name':
+          comparison = a.name.localeCompare(b.name);
+          break;
+        case 'stock':
+          const stockA = getStockInfo(a).totalTablets;
+          const stockB = getStockInfo(b).totalTablets;
+          comparison = stockA - stockB;
+          break;
+        case 'expiry':
+          const dateA = a.expiry_date ? new Date(a.expiry_date).getTime() : Infinity;
+          const dateB = b.expiry_date ? new Date(b.expiry_date).getTime() : Infinity;
+          comparison = dateA - dateB;
+          break;
+        case 'category':
+          comparison = a.category.localeCompare(b.category);
+          break;
+      }
+      
+      return filters.sortOrder === 'desc' ? -comparison : comparison;
+    });
 
   const handleLetterSelect = (letter: string) => {
     const element = document.getElementById(`medicine-${letter}`);
@@ -112,6 +181,20 @@ const Index = () => {
     }));
   };
 
+  const handleBarcodeScanned = (barcode: string) => {
+    // Search for medicine by barcode
+    const foundMedicine = medicines.find(m => m.barcode === barcode);
+    if (foundMedicine) {
+      setSelectedMedicine(foundMedicine);
+      setShowSalesForm(true);
+      setShowBarcodeScanner(false);
+    } else {
+      // Set barcode in search to help user find or add medicine
+      setSearchQuery(barcode);
+      setShowBarcodeScanner(false);
+    }
+  };
+
   const handleSignOut = async () => {
     try {
       await signOut();
@@ -151,7 +234,16 @@ const Index = () => {
             />
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <FilterDialog filters={filters} onChange={setFilters} />
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => setShowBarcodeScanner(true)}
+          >
+            <ScanLine className="h-4 w-4 mr-2" />
+            Scan
+          </Button>
           <ImportDialog onImport={() => {}} />
           <Button 
             onClick={() => setShowMedicineForm(true)}
@@ -234,6 +326,31 @@ const Index = () => {
         totalSalesValue={totalSalesValue}
         totalSalesToday={totalSalesToday}
       />
+      
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <div>
+            <CardTitle>Data Export</CardTitle>
+            <CardDescription>Download your inventory and sales data</CardDescription>
+          </div>
+          <Button onClick={() => setShowExportDialog(true)}>
+            <Download className="w-4 h-4 mr-2" />
+            Export Data
+          </Button>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-4 text-center">
+            <div>
+              <p className="text-2xl font-bold text-primary">{medicines.length}</p>
+              <p className="text-sm text-muted-foreground">Total Items</p>
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-primary">₹{totalSalesToday.toFixed(2)}</p>
+              <p className="text-sm text-muted-foreground">Today's Revenue</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
       
       <Card>
         <CardHeader>
@@ -409,6 +526,38 @@ const Index = () => {
             setSelectedMedicine(null);
           }}
         />
+      )}
+
+      {/* Export Dialog */}
+      <ExportDialog 
+        isOpen={showExportDialog} 
+        onClose={() => setShowExportDialog(false)} 
+      />
+
+      {/* Barcode Scanner */}
+      {showBarcodeScanner && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-background rounded-lg p-6 max-w-md w-full">
+            <BarcodeScanner 
+              onScan={(barcode) => {
+                handleBarcodeScanned(barcode);
+                setShowBarcodeScanner(false);
+              }}
+              onMedicineFound={(medicine) => {
+                setSelectedMedicine(medicine);
+                setShowSalesForm(true);
+                setShowBarcodeScanner(false);
+              }}
+            />
+            <Button 
+              variant="outline" 
+              onClick={() => setShowBarcodeScanner(false)}
+              className="w-full mt-4"
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -7,9 +7,10 @@ import { Camera as CapacitorCamera, CameraResultType, CameraSource } from '@capa
 
 interface BarcodeScannerProps {
   onScan: (result: string) => void;
+  onMedicineFound?: (medicine: any) => void;
 }
 
-export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan }) => {
+export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onMedicineFound }) => {
   const [open, setOpen] = useState(false);
   const [scanning, setScanning] = useState(false);
 

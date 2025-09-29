@@ -106,6 +106,12 @@ export function MedicineCard({
             
             {/* Additional medicine info */}
             <div className="flex flex-wrap gap-2 mt-2">
+              {medicine.barcode && (
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Tag className="w-3 h-3" />
+                  <span>{medicine.barcode}</span>
+                </div>
+              )}
               {medicine.expiry_date && (
                 <div className="flex items-center gap-1 text-xs text-muted-foreground">
                   <Calendar className="w-3 h-3" />
