@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">bright-stock-app</string>
+    <string name="title_activity_main">bright-stock-app</string>
+    <string name="package_name">app.lovable.c452dcc9946546b8b23e79da32ba8f49</string>
+    <string name="custom_url_scheme">app.lovable.c452dcc9946546b8b23e79da32ba8f49</string>
+</resources>
